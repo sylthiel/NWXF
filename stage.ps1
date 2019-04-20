@@ -1,6 +1,7 @@
 Import-Module BitsTransfer
 function Get-NwxInstallation	{
     #AOSH-2019
+	#added git
 	param($ComputerName='localhost')
     #by default we assume that the script is ran on the Netwrix machine
 
