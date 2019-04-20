@@ -1,10 +1,8 @@
 Import-Module BitsTransfer
 function Get-NwxInstallation	{
     #AOSH-2019
-	#added git
 	param($ComputerName='localhost')
     #by default we assume that the script is ran on the Netwrix machine
-
     #if it is installed remotely, we can query the specified hostname for the information.
     if($ComputerName -ne 'localhost')    {
         $NWXInstallation = Invoke-Command -ComputerName $ComputerName -scriptblock {Get-ItemProperty 'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object {$_.DisplayName -eq "Netwrix Auditor"}}
@@ -38,7 +36,7 @@ function Get-NwxInstallation	{
     $Installation
 }
 function Get-NwxLogs {
-    param($NWXInstallation=$Null, $collectors='AD', $path = "$env:TEMP"+"\NWXF")
+    param($NWXInstallation=$Null, $collectors='AD', $path = "$env:TEMP"+"\NWXF", $archivelogs=$false)
 	#$collectors
     #SETTING ADA FOR DEFAULT FOR DEV PURPOSES
     #THIS IS 9.7+
@@ -77,38 +75,64 @@ function Get-NwxLogs {
 			add-content -path $env:TEMP\NWXF\FrameworkLog.log "$(Get-Date) Successfully copied logs to $TempPath"   
 		}
 	}
+	if($archivelogs)	{
+		$TempPath=$currentpath+"\Archive\"+$Collector+'\'
+		if(!(test-path $TempPath))  {
+				new-item -path $TempPath -itemtype "directory" -force | out-null
+		}
+		$LogPath = Get-NwxLogLocation -NWXInstallation $NWXInstallation -Collector $Collector -Archive $True
+		$success=$True
+		Try {
+			add-content -path $env:TEMP\NWXF\FrameworkLog.log -value "$(Get-Date) Obtaining logs for $Collector Audit"
+			#copy-item ($LogPath) -Destination $TempPath -recurse -force -verbose	
+			Start-BitsTransfer -Source $LogPath -Destination $TempPath -Description "Logs" -DisplayName "NWXLE"
+			$copiedfiles+=$TempPath
+		}
+		Catch   {
+			add-content -path $env:TEMP\NWXF\FrameworkLog.log -value "$(Get-Date) [ERROR] Failed to obtain logs! "
+			add-content -path $env:TEMP\NWXF\FrameworkLog.log -value $_.Exception.Message
+			Write-Host -foregroundcolor Red "Error obtaining logs: See NWXF\Frameworklog.log for more information"
+			$Success = $False
+		} 
+		if($Success)   {
+			Write-Host -foregroundcolor Green "Success"
+			add-content -path $env:TEMP\NWXF\FrameworkLog.log "$(Get-Date) Successfully copied logs to $TempPath"   
+		}
+	}
 	Write-Host -foregroundcolor Green "Logs copied to folder" $currentpath
 	$copiedfiles 
 	#Compress-Archi
 }
 function Get-NwxLogLocation {
-    param ($NWXInstallation, $Collector)
+    param ($NWXInstallation, $Collector,$archive=$false)
     #Foolproofing $NWXInstallation to $null in case it is not passed, will be calcd inside
     #echo 'nwx is' $NWXInstallation    
     #echo 'collector is' $Collector 
     if (!$NWXInstallation){
         $NWXInstallation = Get-NwxInstallation
     }    
+	
     $LogLocationSuffix = @{
-        'AD'='Logs\ActiveDirectory'
-        'Exch'='Logs\Exchange'
+		'AD'='\ActiveDirectory'
+        'Exch'='\Exchange'
         'NOMBA'='################################'
-        'GP'='Logs\GroupPolicy'
-        'NLA'='Logs\File Server Auditing\Tracing'  
+        'GP'='\GroupPolicy'
+        'NLA'='\File Server Auditing\Tracing'  
         'FSA'='#######################################'
-        'WSA'='Logs\Windows Server Auditing'
-        'ELM'='Logs\Event Log Management'
+        'WSA'='\Windows Server Auditing'
+        'ELM'='\Event Log Management'
         'UAVR'='####################################'
-        'SQL'='Logs\SQL Server Auditing'
-        'O365'='Logs\Exchange Online'
-        'Azure'='Logs\Azure AD'
-        'SP'='Logs\SharePoint Auditing'
-        'ArchiveSvc'='Logs\AuditCore\NwArchiveSvc'
-        'Management'='Logs\AuditCore\NwManagementSvc'
-        'Core'='Logs\AuditCore\NwCoreSvc'
-        'Alerts'='Logs\Administrative Console'
-        'Archive'='#####################################'   
+        'SQL'='\SQL Server Auditing'
+        'O365'='\Exchange Online'
+        'Azure'='\Azure AD'
+        'SP'='\SharePoint Auditing'
+        'ArchiveSvc'='\AuditCore\NwArchiveSvc'
+        'Management'='\AuditCore\NwManagementSvc'
+        'Core'='\AuditCore\NwCoreSvc'
+        'Alerts'='\Administrative Console'
+        'Archive'='#####################################'  
     }    
-    return $NWXInstallation.WorkingDirectory + $LogLocationSuffix[$Collector]
+    if (!$archive) {return $NWXInstallation.WorkingDirectory + 'Logs'+ $LogLocationSuffix[$Collector]}
+	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive\' + $LogLocationSuffix[$Collector]}
 }
 
