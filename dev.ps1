@@ -12,13 +12,9 @@ function Get-NwxInstallation	{
         $NWXInstallation = Get-ItemProperty 'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object {$_.DisplayName -eq "Netwrix Auditor"}
         $InstallationPath = ((Get-WmiObject win32_service | ?{$_.Name -eq 'NwCoreSvc'}).PathName.split('"')[1])
     }
-    #
-    #   GET-WORKINGDIRECTORY via REG!!
-    #
-    $WorkingDirectory = 'C:\ProgramData\Netwrix Auditor\'
-    #
-    #   GET-WORKINGDIRECTORY via REG!!
-    #
+    if (!(Test-Path 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride'))	{$WorkingDirectory = 'C:\ProgramData\Netwrix Auditor\'}
+	else {$WorkingDirectory = get-item 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride\Working Folder'} #CHECK THIS REG KEY
+    
     if ($NWXInstallation)   {
         $Installation = [PSCustomObject]@{
             ComputerName = $ComputerName
@@ -33,10 +29,10 @@ function Get-NwxInstallation	{
     else { 
         $Installation = $Null
     }
-    $Installation
+    return $Installation
 }
 function Get-NwxLogs {
-    param($NWXInstallation=$Null, $collectors='AD', $path = "$env:TEMP"+"\NWXF", $archivelogs=$false)
+    param($NWXInstallation=$Null, $collectors='', $path = "$env:TEMP"+"\NWXF", $archivelogs=$false, $nwxhealth=$False)
 	#$collectors
     #SETTING ADA FOR DEFAULT FOR DEV PURPOSES
     #THIS IS 9.7+
@@ -98,6 +94,9 @@ function Get-NwxLogs {
 			Write-Host -foregroundcolor Green "Success"
 			add-content -path $env:TEMP\NWXF\FrameworkLog.log "$(Get-Date) Successfully copied logs to $TempPath"   
 		}
+	}
+	if ($nwxhealth)	{
+		wevtutil epl 'Netwrix Auditor' ($currentpath+'\health.evtx')
 	}
 	Write-Host -foregroundcolor Green "Logs copied to folder" $currentpath
 	$copiedfiles 
