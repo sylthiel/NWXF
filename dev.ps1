@@ -120,7 +120,7 @@ function Get-NwxLogLocation {
         'FSA'='#######################################'
         'WSA'='\Windows Server Auditing'
         'ELM'='\Event Log Management'
-        'UAVR'='####################################'
+        'UAVR'='####################################' #<-FIND OUT ABOUT THIS IN 9.8
         'SQL'='\SQL Server Auditing'
         'O365'='\Exchange Online'
         'Azure'='\Azure AD'
@@ -128,8 +128,7 @@ function Get-NwxLogLocation {
         'ArchiveSvc'='\AuditCore\NwArchiveSvc'
         'Management'='\AuditCore\NwManagementSvc'
         'Core'='\AuditCore\NwCoreSvc'
-        'Alerts'='\Administrative Console'
-        'Archive'='#####################################'  
+        'Alerts'='\Administrative Console' 
     }    
     if (!$archive) {return $NWXInstallation.WorkingDirectory + 'Logs'+ $LogLocationSuffix[$Collector]}
 	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive\' + $LogLocationSuffix[$Collector]}
