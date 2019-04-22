@@ -12,13 +12,9 @@ function Get-NwxInstallation	{
         $NWXInstallation = Get-ItemProperty 'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object {$_.DisplayName -eq "Netwrix Auditor"}
         $InstallationPath = ((Get-WmiObject win32_service | ?{$_.Name -eq 'NwCoreSvc'}).PathName.split('"')[1])
     }
-    #
-    #   GET-WORKINGDIRECTORY via REG!!
-    #
-    $WorkingDirectory = 'C:\ProgramData\Netwrix Auditor\'
-    #
-    #   GET-WORKINGDIRECTORY via REG!!
-    #
+    if (!(Test-Path 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride'))	{$WorkingDirectory = 'C:\ProgramData\Netwrix Auditor\'}
+	else {$WorkingDirectory = get-item 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride\Working Folder'} #CHECK THIS REG KEY
+    
     if ($NWXInstallation)   {
         $Installation = [PSCustomObject]@{
             ComputerName = $ComputerName
@@ -33,10 +29,10 @@ function Get-NwxInstallation	{
     else { 
         $Installation = $Null
     }
-    $Installation
+    return $Installation
 }
 function Get-NwxLogs {
-    param($NWXInstallation=$Null, $collectors='AD', $path = "$env:TEMP"+"\NWXF", $archivelogs=$false)
+    param($NWXInstallation=$Null, $collectors='', $path = "$env:TEMP"+"\NWXF", $archivelogs=$false, $nwxhealth=$False)
 	#$collectors
     #SETTING ADA FOR DEFAULT FOR DEV PURPOSES
     #THIS IS 9.7+
@@ -99,6 +95,9 @@ function Get-NwxLogs {
 			add-content -path $env:TEMP\NWXF\FrameworkLog.log "$(Get-Date) Successfully copied logs to $TempPath"   
 		}
 	}
+	if ($nwxhealth)	{
+		wevtutil epl 'Netwrix Auditor' ($currentpath+'\health.evtx')
+	}
 	Write-Host -foregroundcolor Green "Logs copied to folder" $currentpath
 	$copiedfiles 
 	#Compress-Archi
@@ -121,7 +120,7 @@ function Get-NwxLogLocation {
         'FSA'='#######################################'
         'WSA'='\Windows Server Auditing'
         'ELM'='\Event Log Management'
-        'UAVR'='####################################'
+        'UAVR'='####################################' #<-FIND OUT ABOUT THIS IN 9.8
         'SQL'='\SQL Server Auditing'
         'O365'='\Exchange Online'
         'Azure'='\Azure AD'
@@ -129,8 +128,7 @@ function Get-NwxLogLocation {
         'ArchiveSvc'='\AuditCore\NwArchiveSvc'
         'Management'='\AuditCore\NwManagementSvc'
         'Core'='\AuditCore\NwCoreSvc'
-        'Alerts'='\Administrative Console'
-        'Archive'='#####################################'  
+        'Alerts'='\Administrative Console' 
     }    
     if (!$archive) {return $NWXInstallation.WorkingDirectory + 'Logs'+ $LogLocationSuffix[$Collector]}
 	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive\' + $LogLocationSuffix[$Collector]}
