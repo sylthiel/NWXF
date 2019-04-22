@@ -81,7 +81,6 @@ function Get-NwxLogs {
 		Try {
 			add-content -path $env:TEMP\NWXF\FrameworkLog.log -value "$(Get-Date) Obtaining logs for $Collector Audit"
 			copy-item ($LogPath) -Destination $TempPath -recurse -force -verbose	
-			#copy-item -recurse -force -Source $LogPath -Destination $TempPath
 			$copiedfiles+=$TempPath
 		}
 		Catch   {
