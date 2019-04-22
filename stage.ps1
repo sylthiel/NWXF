@@ -56,8 +56,8 @@ function Get-NwxLogs {
 		$success=$True
 		Try {
 			add-content -path $env:TEMP\NWXF\FrameworkLog.log -value "$(Get-Date) Obtaining logs for $Collector Audit"
-			#copy-item ($LogPath) -Destination $TempPath -recurse -force -verbose	
-			Start-BitsTransfer -Source $LogPath -Destination $TempPath -Description "Logs" -DisplayName "NWXLE"
+			copy-item ($LogPath) -Destination $TempPath -recurse -force -verbose	
+			#copy-item -recurse -force -Source $LogPath -Destination $TempPath
 			$copiedfiles+=$TempPath
 		}
 		Catch   {
@@ -67,7 +67,7 @@ function Get-NwxLogs {
 			$Success = $False
 		} 
 		if($Success)   {
-			Write-Host -foregroundcolor Green "Success"
+			Write-Host -foregroundcolor Green "Success, copied $LogPath"
 			add-content -path $env:TEMP\NWXF\FrameworkLog.log "$(Get-Date) Successfully copied logs to $TempPath"   
 		}
 	}
@@ -80,8 +80,8 @@ function Get-NwxLogs {
 		$success=$True
 		Try {
 			add-content -path $env:TEMP\NWXF\FrameworkLog.log -value "$(Get-Date) Obtaining logs for $Collector Audit"
-			#copy-item ($LogPath) -Destination $TempPath -recurse -force -verbose	
-			Start-BitsTransfer -Source $LogPath -Destination $TempPath -Description "Logs" -DisplayName "NWXLE"
+			copy-item ($LogPath) -Destination $TempPath -recurse -force -verbose	
+			#copy-item -recurse -force -Source $LogPath -Destination $TempPath
 			$copiedfiles+=$TempPath
 		}
 		Catch   {
@@ -91,7 +91,7 @@ function Get-NwxLogs {
 			$Success = $False
 		} 
 		if($Success)   {
-			Write-Host -foregroundcolor Green "Success"
+			Write-Host -foregroundcolor Green "Success, copied $LogPath"
 			add-content -path $env:TEMP\NWXF\FrameworkLog.log "$(Get-Date) Successfully copied logs to $TempPath"   
 		}
 	}
@@ -133,6 +133,6 @@ function Get-NwxLogLocation {
         'Alerts'='\Administrative Console' 
     }    
     if (!$archive) {return $NWXInstallation.WorkingDirectory + 'Logs'+ $LogLocationSuffix[$Collector]}
-	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive\' + $LogLocationSuffix[$Collector]}
+	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive' + $LogLocationSuffix[$Collector]}
 }
 
