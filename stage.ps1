@@ -107,6 +107,7 @@ function Get-NwxLogLocation {
     #Foolproofing $NWXInstallation to $null in case it is not passed, will be calcd inside
     #echo 'nwx is' $NWXInstallation    
     #echo 'collector is' $Collector 
+	#echo ILJ
     if (!$NWXInstallation){
         $NWXInstallation = Get-NwxInstallation
     }    
@@ -114,10 +115,11 @@ function Get-NwxLogLocation {
     $LogLocationSuffix = @{
 		'AD'='\ActiveDirectory'
         'Exch'='\Exchange'
-        'NOMBA'='################################'
+        'NOMBA'='\Nomba'
         'GP'='\GroupPolicy'
         'NLA'='\File Server Auditing\Tracing'  
-        'FSA'='#######################################'
+        'FSAWIN'='\DataCollectionCore\NwFileStorageSvc'
+		'FSAETC'='\File Server Auditing\Tracing'
         'WSA'='\Windows Server Auditing'
         'ELM'='\Event Log Management'
         'UAVR'='####################################' #<-FIND OUT ABOUT THIS IN 9.8
