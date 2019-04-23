@@ -116,7 +116,7 @@ function Get-NwxLogLocation {
         'Exch'='\Exchange'
         'NOMBA'='\Nomba'
         'GP'='\GroupPolicy'
-        'NLA'='\File Server Auditing\Tracing'  
+        'NLA'='DataCollectionCore\NwNLASvc'  
         'FSAWIN'='\DataCollectionCore\NwFileStorageSvc'
 		'FSAETC'='\File Server Auditing\Tracing'
         'WSA'='\Windows Server Auditing'
