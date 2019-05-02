@@ -134,4 +134,14 @@ function Get-NwxLogLocation {
     if (!$archive) {return $NWXInstallation.WorkingDirectory + 'Logs'+ $LogLocationSuffix[$Collector]}
 	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive' + $LogLocationSuffix[$Collector]}
 }
-
+function Get-NetwrixServiceAccountUsage {
+	param ($NWXInstallation=$Null, $configurationxmlpath=$Null)
+	if (!$NWXInstallation -and !$configurationxmlpath)	{
+		$NWXInstallation=Get-NwxInstallation
+	}
+	[xml]$configuration=get-content -path ($NwxInstallation.WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml')
+	$MonitoringPlans =  $configuration.selectnodes('/nr/n/n/n[@t="ManagedObject"]')
+	$MonitoringPlans
+	#$s = get-content $configuration
+	
+}
