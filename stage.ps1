@@ -14,8 +14,13 @@ function Get-NwxInstallation	{
     }
     if (!(Test-Path 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride'))	{$WorkingDirectory = 'C:\ProgramData\Netwrix Auditor\'}
 	else {$WorkingDirectory = get-item 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride\Working Folder'} #CHECK THIS REG KEY
-    if ($NWXInstallation) {[xml]$configuration=get-content -path ($WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml')}
-    if ($NWXInstallation)   {
+    
+	if ($NWXInstallation) {[xml]$configuration=get-content -path ($WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml')}
+    
+	#Creaing the custom object that hosts Netwrix paths and configurationXML for quick reference. 
+	#This needs to call Get-NwxObject to create a PSObject from Configuration.XML And be used for other features 
+	
+	if ($NWXInstallation)   {
         $Installation = [PSCustomObject]@{
             ComputerName = $ComputerName
             DisplayVersion = $NWXInstallation.DisplayVersion
@@ -25,9 +30,12 @@ function Get-NwxInstallation	{
             WorkingDirectory = $WorkingDirectory
 			ConfigurationXML=$configuration
 			ConfgiurationXMLPath=$WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml'
+			##
+			#	Get-NwxObject -NWXInstallation $NwxInstallation
+			##
         }
     }
-    ##If we didn't find it, it's not installed
+	
     else { 
         $Installation = $Null
     }
