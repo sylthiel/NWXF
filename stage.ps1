@@ -14,7 +14,7 @@ function Get-NwxInstallation	{
     }
     if (!(Test-Path 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride'))	{$WorkingDirectory = 'C:\ProgramData\Netwrix Auditor\'}
 	else {$WorkingDirectory = get-item 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride\Working Folder'} #CHECK THIS REG KEY
-    
+    if ($NWXInstallation) {[xml]$configuration=get-content -path ($WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml')}
     if ($NWXInstallation)   {
         $Installation = [PSCustomObject]@{
             ComputerName = $ComputerName
@@ -22,7 +22,9 @@ function Get-NwxInstallation	{
             VersionMajor = $NWXInstallation.VersionMajor
             VersionMinor = $NWXInstallation.VersionMinor
             InstallationPath = ($InstallationPath -replace ('Audit Core\\NwCoreSvc.exe',''))
-            WorkingDirectory = $WorkingDirectory  
+            WorkingDirectory = $WorkingDirectory
+			ConfigurationXML=$configuration
+			ConfgiurationXMLPath=$WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml'
         }
     }
     ##If we didn't find it, it's not installed
@@ -135,13 +137,11 @@ function Get-NwxLogLocation {
 	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive' + $LogLocationSuffix[$Collector]}
 }
 function Get-NetwrixServiceAccountUsage {
-	param ($NWXInstallation=$Null, $configurationxmlpath=$Null)
+	#This function requires Netwrix object function to be implemented, so it is empty right now
+	#This sounds like a far more useful implementation, as getting the Netwrix object once is something that can be useful far beyond service account usage, and I want grabbing service account usage to be an 0(1) operation, not O(n)
+	
+	param ($NWXObject=$Null, $configurationxmlpath=$Null)
 	if (!$NWXInstallation -and !$configurationxmlpath)	{
 		$NWXInstallation=Get-NwxInstallation
-	}
-	[xml]$configuration=get-content -path ($NwxInstallation.WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml')
-	$MonitoringPlans =  $configuration.selectnodes('/nr/n/n/n[@t="ManagedObject"]')
-	$MonitoringPlans
-	#$s = get-content $configuration
-	
+	}	
 }
