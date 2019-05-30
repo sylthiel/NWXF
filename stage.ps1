@@ -30,42 +30,40 @@ function get-nwxconfig {
 	$monitoringPlans = [System.Collections.ArrayList]@()
 	$managedObjects = $configxml.SelectNodes('./nr[1]/n/n[@n="ManagedObjects"]/n')
 	$managedObjects | % {
-	$temp = new-MonitoringPlan
-	$temp.GUID = $_.n[0]
-	$tempName = $_.selectNodes("./a[@n='Name']")
-	$temp.name = $tempName.v
-	$tempDPA=$_.selectNodes("./n[@n='AccountInfo']/a[@n='UserName']")
-	$temp.MP_DPA=$tempDPA.v
-	$tempDataSources = $_.SelectNodes("./n[@n='AuditedSystems']/n")
-	$tempDataSources | % {
-		$tempDS = new-DataSource
-		$TMP=$_.selectnodes("./n[@n='Agents']/a") | select v
-		$tempDS.agents=$True
-		$TMP=$_.selectnodes("./n[@n='StateInTimeReporting']/a[@n='Enabled']") | select v
-		$tempDS.sit=$TMP
-		$tempDS.GUID=$_.n[0]
-		$TMP="'"+$tempDS.GUID+"'"
-		$tmpType=$configxml.selectsinglenode("//n[@n=$TMP]/a[@n='ShortName']")
-		$tempDS.aud=$tmpType.v		
-		$items=$_.SelectNodes("./n[@n='ScopeItems']/n")
-		$items | % { 
-			$tmpi = new-item
-			$tmpi.type=$_.t
-			$TMP=$_.selectnodes("./a[@n='audit_item_value']")
-			$tmpi.target=$TMP.v
-			$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='DefaultAccount']")
-			$tmpi.usesDefault=[System.Convert]::ToBoolean($Tmp.v)
-			if (!$tmpi.usesDefault)	{
-				$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='UserName']")
-				$tmpi.DPA=$TMP.v
+		$temp = new-MonitoringPlan
+		$temp.GUID = $_.n[0]
+		$tempName = $_.selectNodes("./a[@n='Name']")
+		$temp.name = $tempName.v
+		$tempDPA=$_.selectNodes("./n[@n='AccountInfo']/a[@n='UserName']")
+		$temp.MP_DPA=$tempDPA.v
+		$tempDataSources = $_.SelectNodes("./n[@n='AuditedSystems']/n")
+		$tempDataSources | % {
+			$tempDS = new-DataSource
+			$TMP=$_.selectnodes("./n[@n='Agents']/a") | select v
+			$tempDS.agents=$True
+			$TMP=$_.selectnodes("./n[@n='StateInTimeReporting']/a[@n='Enabled']") | select v
+			$tempDS.sit=$TMP
+			$tempDS.GUID=$_.n[0]
+			$TMP="'"+$tempDS.GUID+"'"
+			$tmpType=$configxml.selectsinglenode("//n[@n=$TMP]/a[@n='ShortName']")
+			$tempDS.aud=$tmpType.v		
+			$items=$_.SelectNodes("./n[@n='ScopeItems']/n")
+			$items | % { 
+				$tmpi = new-item
+				$tmpi.type=$_.t
+				$TMP=$_.selectnodes("./a[@n='audit_item_value']")
+				$tmpi.target=$TMP.v
+				$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='DefaultAccount']")
+				$tmpi.usesDefault=[System.Convert]::ToBoolean($Tmp.v)
+				if (!$tmpi.usesDefault)	{
+					$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='UserName']")
+					$tmpi.DPA=$TMP.v
+				}
+				[void]$tempDS.items.add($tmpi)
 			}
-			[void]$tempDS.items.add($tmpi)
+			[void]$temp.dataSources.add($tempDS)
 		}
-		[void]$temp.dataSources.add($tempDS)
-	}
-	
 	[void]$monitoringPlans.add($temp)
-	
 	}
 	return $monitoringPlans
 }
