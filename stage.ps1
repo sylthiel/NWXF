@@ -1,4 +1,74 @@
-Import-Module BitsTransfer
+function new-item {
+	$item = new-object PSObject
+	$item | add-member -type noteproperty -Name usesDefault -Value $False
+	$item | add-member -type noteproperty -Name type -Value ""
+	$item | add-member -type noteproperty -Name target -Value ""
+	$item | add-member -type noteproperty -Name DPA -Value ""
+	return $item
+}
+function new-DataSource {
+	$dataSource = new-object PSObject
+	$tmp = [System.Collections.ArrayList]@()
+	$dataSource | add-member -type noteproperty -Name items -Value $tmp
+	$dataSource | add-member -type noteproperty -name aud -Value ""
+	$dataSource | add-member -type noteproperty -Name sit -Value $False
+	$dataSource | add-member -type noteproperty -Name agents -Value $False
+	$dataSource | add-member -type noteproperty -Name GUID -Value ""
+	return $dataSource
+}
+function new-MonitoringPlan {
+	$monitoringPlan = new-object PSObject
+	$tmp = [System.Collections.ArrayList]@()
+	$monitoringPlan | add-member -type noteproperty -Name dataSources -Value $tmp
+	$monitoringPlan | add-member -type noteproperty -Name name -Value ""
+	$monitoringPlan | add-member -type noteproperty -Name GUID -Value ""
+	$monitoringPlan | add-member -type noteproperty -Name MP_DPA -Value ""
+	return $monitoringPlan
+}
+function get-nwxconfig {
+	param($configxml)
+	$monitoringPlans = [System.Collections.ArrayList]@()
+	$managedObjects = $configxml.SelectNodes('./nr[1]/n/n[@n="ManagedObjects"]/n')
+	$managedObjects | % {
+	$temp = new-MonitoringPlan
+	$temp.GUID = $_.n[0]
+	$tempName = $_.selectNodes("./a[@n='Name']")
+	$temp.name = $tempName.v
+	$tempDPA=$_.selectNodes("./n[@n='AccountInfo']/a[@n='UserName']")
+	$temp.MP_DPA=$tempDPA.v
+	$tempDataSources = $_.SelectNodes("./n[@n='AuditedSystems']/n")
+	$tempDataSources | % {
+		$tempDS = new-DataSource
+		$TMP=$_.selectnodes("./n[@n='Agents']/a") | select v
+		$tempDS.agents=$True
+		$TMP=$_.selectnodes("./n[@n='StateInTimeReporting']/a[@n='Enabled']") | select v
+		$tempDS.sit=$TMP
+		$tempDS.GUID=$_.n[0]
+		$TMP="'"+$tempDS.GUID+"'"
+		$tmpType=$configxml.selectsinglenode("//n[@n=$TMP]/a[@n='ShortName']")
+		$tempDS.aud=$tmpType.v		
+		$items=$_.SelectNodes("./n[@n='ScopeItems']/n")
+		$items | % { 
+			$tmpi = new-item
+			$tmpi.type=$_.t
+			$TMP=$_.selectnodes("./a[@n='audit_item_value']")
+			$tmpi.target=$TMP.v
+			$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='DefaultAccount']")
+			$tmpi.usesDefault=[System.Convert]::ToBoolean($Tmp.v)
+			if (!$tmpi.usesDefault)	{
+				$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='UserName']")
+				$tmpi.DPA=$TMP.v
+			}
+			[void]$tempDS.items.add($tmpi)
+		}
+		[void]$temp.dataSources.add($tempDS)
+	}
+	
+	[void]$monitoringPlans.add($temp)
+	
+	}
+	return $monitoringPlans
+}
 function Get-NwxInstallation	{
     #AOSH-2019
 	param($ComputerName='localhost')
@@ -14,8 +84,11 @@ function Get-NwxInstallation	{
     }
     if (!(Test-Path 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride'))	{$WorkingDirectory = 'C:\ProgramData\Netwrix Auditor\'}
 	else {$WorkingDirectory = get-item 'HKLM:\SOFTWARE\Wow6432Node\Netwrix Auditor\DataPathOverride\Working Folder'} #CHECK THIS REG KEY
-    
-	if ($NWXInstallation) {[xml]$configuration=get-content -path ($WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml')}
+   
+	if ($NWXInstallation) {
+		[System.Xml.XmlDocument]$configxml = new-object System.Xml.XmlDocument
+		$configxml.load($WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml')
+	}
     
 	#Creaing the custom object that hosts Netwrix paths and configurationXML for quick reference. 
 	#This needs to call Get-NwxObject to create a PSObject from Configuration.XML And be used for other features 
@@ -28,14 +101,14 @@ function Get-NwxInstallation	{
             VersionMinor = $NWXInstallation.VersionMinor
             InstallationPath = ($InstallationPath -replace ('Audit Core\\NwCoreSvc.exe',''))
             WorkingDirectory = $WorkingDirectory
-			ConfigurationXML=$configuration
+			ConfigurationXML=$configxml
 			ConfgiurationXMLPath=$WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml'
-			##
-			#	Get-NwxObject -NWXInstallation $NwxInstallation
-			##
+			MonitoringPlans=Get-NwxConfig -configxml $configxml
+
+
+
         }
     }
-	
     else { 
         $Installation = $Null
     }
