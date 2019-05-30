@@ -65,7 +65,23 @@ function get-nwxconfig {
 		}
 	[void]$monitoringPlans.add($temp)
 	}
+	##ELM
+	
+	##ELM
 	return $monitoringPlans
+}
+function Get-LegacyAuditSystems {
+	param ($configxml)
+	$legacyAuditSystems=$configxml.selectnodes("./nr[1]/n[@n='\LegacyAuditSystems']/n/n/n[@n='ManagedObjects']")
+	if($legacyAuditSystems -ne $null) {
+		#
+		
+		#$ELMitems=$legacyAuditSystems.selectnodes("//n")
+	
+		
+		#
+	}
+	return $legacyAuditSystems
 }
 function Get-NwxInstallation	{
     #AOSH-2019
@@ -102,7 +118,8 @@ function Get-NwxInstallation	{
 			ConfigurationXML=$configxml
 			ConfgiurationXMLPath=$WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml'
 			MonitoringPlans=Get-NwxConfig -configxml $configxml
-
+			
+			#ELM=Get-LegacyAuditSystems -configxml $configxml
 
 
         }
