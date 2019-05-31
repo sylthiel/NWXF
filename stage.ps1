@@ -230,6 +230,7 @@ function Get-NwxLogLocation {
 	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive' + $LogLocationSuffix[$Collector]}
 }
 # I love Julia O.
+# pik
 function Get-NetwrixServiceAccountUsage {
 	#This function requires Netwrix object function to be implemented, so it is empty right now
 	#This sounds like a far more useful implementation, as getting the Netwrix object once is something that can be useful far beyond service account usage, and I want grabbing service account usage to be an 0(1) operation, not O(n)
