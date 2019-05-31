@@ -65,9 +65,6 @@ function get-nwxconfig {
 		}
 	[void]$monitoringPlans.add($temp)
 	}
-	##ELM
-	
-	##ELM
 	return $monitoringPlans
 }
 function Get-LegacyAuditSystems {
