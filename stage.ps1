@@ -87,6 +87,29 @@ function Get-LegacyAuditSystems {
 	}
 	return $tmp
 }
+function Get-NwxSQLSettings {
+    param($configxml)
+    $SQLSettings=$configxml.selectnodes("./nr[1]/n[@n='\AuditedSystemsAccountsCache']/n/n/n/n/n")
+    $NwxSQLSettings="" | select SQLURL, SQLUserName, SSRSURL1, SSRSURL2, SSRSUserName, DDCSQLUserName
+    $NwxSQLSettings.SQLURL=($SQLSettings.selectnodes("./a")).v
+    $NwxSQLSettings.SQLUserName=($SQLSettings.selectnodes("./n[@n='AccountInfo']/a[@n='UserName']")).v
+    $NwxSQLSettings.SSRSURL1=($configxml.selectnodes("./nr[1]/n[@n='\NetwrixAuditor']/n[@n='CommonSettings']/n[@n='ReportingSettings']/a[@n='ReportServerUrl']")).v
+    $NwxSQLSettings.SSRSURL2=($configxml.selectnodes("./nr[1]/n[@n='\NetwrixAuditor']/n[@n='CommonSettings']/n[@n='ReportingSettings']/a[@n='ReportManagerUrl']")).v
+    $NwxSQLSettings.SSRSUserName=($configxml.selectnodes("./nr[1]/n[@n='\NetwrixAuditor']/n[@n='CommonSettings']/n[@n='ReportingSettings']/a[@n='UserName']")).v
+    $NwxSQLSettings.DDCSQLUserName=($configxml.selectnodes("./nr[1]/n[@n='\DDC']/n[@n='SQLSettings']/a[@n='UserName']")).v
+    return $NwxSQLSettings
+}
+function Get-NwxSchTasks {
+    $NwxSchTasks = [System.Collections.ArrayList]@()
+    $Tasks=Get-ScheduledTask -TaskName *Netwrix* | select TaskName, Author
+    $Tasks | % {
+        $TmpTask = "" | select "Name", "DPA"
+        $TmpTask.Name = $_.TaskName
+        $TmpTask.DPA = $_.Author
+        [void]$NwxSchTasks.add($TmpTask)
+    }
+    return $NwxSchTasks
+}
 function Get-NwxInstallation	{
     #AOSH-2019
 	param($ComputerName='localhost')
@@ -108,24 +131,24 @@ function Get-NwxInstallation	{
 		$configxml.load($WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml')
 	}
     
-	#Creaing the custom object that hosts Netwrix paths and configurationXML for quick reference. 
+	#Creating the custom object that hosts Netwrix paths and configurationXML for quick reference. 
 	#This needs to call Get-NwxObject to create a PSObject from Configuration.XML And be used for other features 
 	
 	if ($NWXInstallation)   {
         $Installation = [PSCustomObject]@{
             ComputerName = $ComputerName
             DisplayVersion = $NWXInstallation.DisplayVersion
-            VersionMajor = $NWXInstallation.VersionMajor
-            VersionMinor = $NWXInstallation.VersionMinor
+            #VersionMajor = $NWXInstallation.VersionMajor
+            #VersionMinor = $NWXInstallation.VersionMinor
             InstallationPath = ($InstallationPath -replace ('Audit Core\\NwCoreSvc.exe',''))
             WorkingDirectory = $WorkingDirectory
 			ConfigurationXML=$configxml
 			ConfgiurationXMLPath=$WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml'
-			MonitoringPlans=Get-NwxConfig -configxml $configxml
-			
-			ELM=Get-LegacyAuditSystems -configxml $configxml
-
-
+			MonitoringPlans=Get-NwxConfig $configxml
+			DefaultSQLSettings=Get-NwxSQLSettings $configxml
+			ELM=Get-LegacyAuditSystems $configxml
+            SQLSettings=Get-NwxSQLSettings $configxml
+            NwxSchTasks=Get-NwxSchTasks
         }
     }
     else { 
@@ -201,7 +224,6 @@ function Get-NwxLogs {
 	}
 	Write-Host -foregroundcolor Green "Logs copied to folder" $currentpath
 	$copiedfiles 
-	#Compress-Archi
 }
 function Get-NwxLogLocation {
     param ($NWXInstallation, $Collector,$archive=$false)
@@ -236,14 +258,23 @@ function Get-NwxLogLocation {
     if (!$archive) {return $NWXInstallation.WorkingDirectory + 'Logs'+ $LogLocationSuffix[$Collector]}
 	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive' + $LogLocationSuffix[$Collector]}
 }
-# I love Julia O.
-# pik
-function Get-NetwrixServiceAccountUsage {
-	#This function requires Netwrix object function to be implemented, so it is empty right now
-	#This sounds like a far more useful implementation, as getting the Netwrix object once is something that can be useful far beyond service account usage, and I want grabbing service account usage to be an 0(1) operation, not O(n)
-	
-	param ($NWXObject=$Null, $configurationxmlpath=$Null)
-	if (!$NWXInstallation -and !$configurationxmlpath)	{
+
+function Get-NwxServiceAccountUsage {
+	param ($NWXObject=$Null, $NwxInstallation=$Null)  #$NwxObject is going to be a future implementation where we can create a Netwrix Object and then work with it on a different machine
+	#If NwxInstallation has not been passed through, get it
+    if (!$NWXInstallation)	{
 		$NWXInstallation=Get-NwxInstallation
-	}	
+	}
+    $NwxInstallation.MonitoringPlans | % {
+        $_ | select Name, MP_DPA
+
+        $_.DataSources.Items | % {
+            if(!$_.usesDefault) {
+                $_.target + "            " + $_.DPA
+            }    
+        }    
+    }
+    $NwxInstallation.ELM | % {
+        $_ | select Name, MP_DPA
+    }    	
 }
