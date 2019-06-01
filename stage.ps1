@@ -4,6 +4,7 @@ function new-item {
 	$item | add-member -type noteproperty -Name type -Value ""
 	$item | add-member -type noteproperty -Name target -Value ""
 	$item | add-member -type noteproperty -Name DPA -Value ""
+    $item | Add-Member -type NoteProperty -Name ParentMP -Value ""
 	return $item
 }
 function new-DataSource {
@@ -23,6 +24,8 @@ function new-MonitoringPlan {
 	$monitoringPlan | add-member -type noteproperty -Name name -Value ""
 	$monitoringPlan | add-member -type noteproperty -Name GUID -Value ""
 	$monitoringPlan | add-member -type noteproperty -Name MP_DPA -Value ""
+    $monitoringPlan | Add-Member -Type NoteProperty -Name usesDefaultSQL -Value $True
+    $monitoringPlan | Add-Member -type NoteProperty -name SQLUserName -Value ""
 	return $monitoringPlan
 }
 function get-nwxconfig {
@@ -31,6 +34,9 @@ function get-nwxconfig {
 	$managedObjects = $configxml.SelectNodes('./nr[1]/n/n[@n="ManagedObjects"]/n')
 	$managedObjects | % {
 		$temp = new-MonitoringPlan
+        $temp.usesDefaultSQL=[System.Convert]::ToBoolean($_.selectnodes("./n[@n='ReportingSettings']/a[@n='UseDefault']").v)
+        #write-host ($_.selectnodes("./n[@n='ReportingSettings']/a[@n='Enabled']").v)
+        if(!$temp.usesDefaultSQL){$temp.SQLUserName = ($_.selectnodes("./n[@n='ReportingSettings']/a[@n='UserName']")).v}
 		$temp.GUID = $_.n[0]
 		$tempName = $_.selectNodes("./a[@n='Name']")
 		$temp.name = $tempName.v
@@ -59,6 +65,7 @@ function get-nwxconfig {
 					$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='UserName']")
 					$tmpi.DPA=$TMP.v
 				}
+                $tmpi.ParentMP=$temp.name
 				[void]$tempDS.items.add($tmpi)
 			}
 			[void]$temp.dataSources.add($tempDS)
@@ -103,9 +110,22 @@ function Get-NwxSchTasks {
     $NwxSchTasks = [System.Collections.ArrayList]@()
     $Tasks=Get-ScheduledTask -TaskName *Netwrix* | select TaskName, Author
     $Tasks | % {
-        $TmpTask = "" | select "Name", "DPA"
-        $TmpTask.Name = $_.TaskName
-        $TmpTask.DPA = $_.Author
+        $TmpTask = "" | select "Name", "MP_DPA", "GUID"
+        $TmpName = $_.TaskName
+        $Tmp=([regex]::Matches($TmpName, '{[-0-9a-z]+}'))
+        $TmpTask.GUID=$Tmp[1]
+        switch ($Tmp[0]) {
+            "{1127fafa-5e4f-e3d6-05d6-ca9317c533bb}" {
+                $TmpTask.Name="IUT"
+            }
+            "{33049cf6-6925-d7bd-ab7e-9cf82eed22e0}" {
+                $TmpTask.Name="PEN"
+            }
+            "{e8f4ac2f-098c-8cc5-22f2-9339d551325a}" {
+                $TmpTask.Name="ELM"
+            }
+        }
+        $TmpTask.MP_DPA = $_.Author
         [void]$NwxSchTasks.add($TmpTask)
     }
     return $NwxSchTasks
@@ -258,23 +278,22 @@ function Get-NwxLogLocation {
     if (!$archive) {return $NWXInstallation.WorkingDirectory + 'Logs'+ $LogLocationSuffix[$Collector]}
 	else {return $NWXInstallation.WorkingDirectory + 'Logs\' + 'Archive' + $LogLocationSuffix[$Collector]}
 }
-
 function Get-NwxServiceAccountUsage {
-	param ($NWXObject=$Null, $NwxInstallation=$Null)  #$NwxObject is going to be a future implementation where we can create a Netwrix Object and then work with it on a different machine
-	#If NwxInstallation has not been passed through, get it
+    param ($NwxInstallation=$Null)
     if (!$NWXInstallation)	{
 		$NWXInstallation=Get-NwxInstallation
 	}
-    $NwxInstallation.MonitoringPlans | % {
-        $_ | select Name, MP_DPA
-
-        $_.DataSources.Items | % {
-            if(!$_.usesDefault) {
-                $_.target + "            " + $_.DPA
-            }    
-        }    
-    }
-    $NwxInstallation.ELM | % {
-        $_ | select Name, MP_DPA
-    }    	
+    Write-Host -BackgroundColor DarkGreen -NoNewLine "Monitoring Plans:"
+    $NwxInstallation.monitoringPlans | ft name, MP_DPA
+    Write-Host -BackgroundColor DarkGreen -NoNewLine "Monitoring Plans with non-default SQL settings:"
+    $NwxInstallation.monitoringPlans | ? {!$_.usesDefaultSQL} | ft Name, SQLUserName
+    Write-Host -BackgroundColor DarkGreen -NoNewLine "Items with non-default credentials:"
+    $NwxInstallation.monitoringPlans.dataSources.items | ? {!$_.usesDefault} | ft ParentMP, type, target, DPA
+    Write-Host -BackgroundColor DarkGreen -NoNewLine "Legacy Netwrix Products (IUT, PEN, ELM)"
+    $NwxInstallation.nwxSchTasks | ft Name, GUID, MP_DPA
+    Write-Host -BackgroundColor DarkGreen -NoNewLine "`nSQL, DDC, SSRS default settings"
+    $NwxInstallation.SQLSettings | fl
 }
+
+
+
