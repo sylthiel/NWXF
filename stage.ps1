@@ -283,16 +283,26 @@ function Get-NwxServiceAccountUsage {
     if (!$NWXInstallation)	{
 		$NWXInstallation=Get-NwxInstallation
 	}
-    Write-Host -BackgroundColor DarkGreen -NoNewLine "Monitoring Plans:"
-    $NwxInstallation.monitoringPlans | ft name, MP_DPA
-    Write-Host -BackgroundColor DarkGreen -NoNewLine "Monitoring Plans with non-default SQL settings:"
-    $NwxInstallation.monitoringPlans | ? {!$_.usesDefaultSQL} | ft Name, SQLUserName
-    Write-Host -BackgroundColor DarkGreen -NoNewLine "Items with non-default credentials:"
-    $NwxInstallation.monitoringPlans.dataSources.items | ? {!$_.usesDefault} | ft ParentMP, type, target, DPA
-    Write-Host -BackgroundColor DarkGreen -NoNewLine "Legacy Netwrix Products (IUT, PEN, ELM)"
-    $NwxInstallation.nwxSchTasks | ft Name, GUID, MP_DPA
-    Write-Host -BackgroundColor DarkGreen -NoNewLine "`nSQL, DDC, SSRS default settings"
-    $NwxInstallation.SQLSettings | fl
+    if($NwxInstallation.monitoringPlans) {
+        Write-Host -BackgroundColor DarkGreen -NoNewLine "Monitoring Plans:"
+        $NwxInstallation.monitoringPlans | ft name, MP_DPA
+    }
+    if($NwxInstallation.monitoringPlans | ? {$_.usesDefaultSQL}) {
+        Write-Host -BackgroundColor DarkGreen -NoNewLine "Monitoring Plans with non-default SQL settings:"
+        $NwxInstallation.monitoringPlans | ? {!$_.usesDefaultSQL} | ft Name, SQLUserName
+    }
+    if ($NwxInstallation.monitoringPlans.dataSources.items | ? {!$_.usesDefault}) {
+        Write-Host -BackgroundColor DarkGreen -NoNewLine "Items with non-default credentials:"
+        $NwxInstallation.monitoringPlans.dataSources.items | ? {!$_.usesDefault} | ft ParentMP, type, target, DPA
+    }
+    if ($NwxInstallation.nwxSchTasks) {
+        Write-Host -BackgroundColor DarkGreen -NoNewLine "Legacy Netwrix Products (IUT, PEN, ELM)"
+        $NwxInstallation.nwxSchTasks | ft Name, GUID, MP_DPA
+    }
+    if ($NwxInstallation.SQLSettings) {
+        Write-Host -BackgroundColor DarkGreen -NoNewLine "`nSQL, DDC, SSRS default settings"
+        $NwxInstallation.SQLSettings | fl
+    }
 }
 
 
