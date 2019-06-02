@@ -287,7 +287,7 @@ function Get-NwxServiceAccountUsage {
         Write-Host -BackgroundColor DarkGreen -NoNewLine "Monitoring Plans:"
         $NwxInstallation.monitoringPlans | ft name, MP_DPA
     }
-    if($NwxInstallation.monitoringPlans | ? {$_.usesDefaultSQL}) {
+    if($NwxInstallation.monitoringPlans | ? {!$_.usesDefaultSQL}) {
         Write-Host -BackgroundColor DarkGreen -NoNewLine "Monitoring Plans with non-default SQL settings:"
         $NwxInstallation.monitoringPlans | ? {!$_.usesDefaultSQL} | ft Name, SQLUserName
     }
