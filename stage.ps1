@@ -11,10 +11,10 @@ function new-DataSource {
 	$dataSource = new-object PSObject
 	$tmp = [System.Collections.ArrayList]@()
 	$dataSource | add-member -type noteproperty -Name items -Value $tmp
-	$dataSource | add-member -type noteproperty -name aud -Value ""
 	$dataSource | add-member -type noteproperty -Name sit -Value $False
 	$dataSource | add-member -type noteproperty -Name agents -Value $False
 	$dataSource | add-member -type noteproperty -Name GUID -Value ""
+    $dataSource | add-member -type NoteProperty -Name DSType -Value ""
 	return $dataSource
 }
 function new-MonitoringPlan {
@@ -27,6 +27,11 @@ function new-MonitoringPlan {
     $monitoringPlan | Add-Member -Type NoteProperty -Name usesDefaultSQL -Value $True
     $monitoringPlan | Add-Member -type NoteProperty -name SQLUserName -Value ""
 	return $monitoringPlan
+}
+function Get-DSTypeByGUID {
+    param ($GUID, $configxml)
+    $tmp="'"+$GUID+"'"
+    return ($configxml.selectnodes("./nr[1]/n[@n='\NetwrixAuditor']/n[@n='MetaInformation']/n[@n='Collectors']/n[@n=$tmp]/a[@n='ShortName']").v)
 }
 function get-nwxconfig {
 	param($configxml)
@@ -50,9 +55,7 @@ function get-nwxconfig {
 			$TMP=$_.selectnodes("./n[@n='StateInTimeReporting']/a[@n='Enabled']") | select v
 			$tempDS.sit=$TMP
 			$tempDS.GUID=$_.n[0]
-			$TMP="'"+$tempDS.GUID+"'"
-			$tmpType=$configxml.selectsinglenode("//n[@n=$TMP]/a[@n='ShortName']")
-			$tempDS.aud=$tmpType.v		
+            $tempDS.DSType=Get-DSTypeByGUID -GUID $tempDS.GUID -configxml $configxml	
 			$items=$_.SelectNodes("./n[@n='ScopeItems']/n")
 			$items | % { 
 				$tmpi = new-item
@@ -107,24 +110,26 @@ function Get-NwxSQLSettings {
     return $NwxSQLSettings
 }
 function Get-NwxSchTasks {
+    param ($configxml)
     $NwxSchTasks = [System.Collections.ArrayList]@()
     $Tasks=Get-ScheduledTask -TaskName *Netwrix* | select TaskName, Author
     $Tasks | % {
         $TmpTask = "" | select "Name", "MP_DPA", "GUID"
         $TmpName = $_.TaskName
         $Tmp=([regex]::Matches($TmpName, '{[-0-9a-z]+}'))
-        $TmpTask.GUID=$Tmp[1]
-        switch ($Tmp[0]) {
-            "{1127fafa-5e4f-e3d6-05d6-ca9317c533bb}" {
-                $TmpTask.Name="IUT"
-            }
-            "{33049cf6-6925-d7bd-ab7e-9cf82eed22e0}" {
-                $TmpTask.Name="PEN"
-            }
-            "{e8f4ac2f-098c-8cc5-22f2-9339d551325a}" {
-                $TmpTask.Name="ELM"
-            }
-        }
+        $TmpTask.GUID=(([System.Convert]::toString($Tmp[1]) -replace "[{}]", ""))
+        #switch ($Tmp[0]) {
+        #    "{1127fafa-5e4f-e3d6-05d6-ca9317c533bb}" {
+        #        $TmpTask.Name="IUT"
+        #    }
+        #    "{33049cf6-6925-d7bd-ab7e-9cf82eed22e0}" {
+        #        $TmpTask.Name="PEN"
+        #    }
+        #    "{e8f4ac2f-098c-8cc5-22f2-9339d551325a}" {
+        #        $TmpTask.Name="ELM"
+        #    }
+        #}
+        $TmpTask.Name=Get-DSTypeByGUID -GUID ($tmp[0] -replace "[{}]", "") -configxml $configxml
         $TmpTask.MP_DPA = $_.Author
         [void]$NwxSchTasks.add($TmpTask)
     }
@@ -168,7 +173,7 @@ function Get-NwxInstallation	{
 			DefaultSQLSettings=Get-NwxSQLSettings $configxml
 			ELM=Get-LegacyAuditSystems $configxml
             SQLSettings=Get-NwxSQLSettings $configxml
-            NwxSchTasks=Get-NwxSchTasks
+            NwxSchTasks=Get-NwxSchTasks $configxml
         }
     }
     else { 
