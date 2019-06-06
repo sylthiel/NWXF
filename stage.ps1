@@ -1,11 +1,18 @@
 function new-item {
 	$item = new-object PSObject
+    $tmp2=[System.Collections.ArrayList]@()
+    $tmp3=[System.Collections.ArrayList]@()
+    
 	$item | add-member -type noteproperty -Name usesDefault -Value $False
 	$item | add-member -type noteproperty -Name type -Value ""
 	$item | add-member -type noteproperty -Name target -Value ""
 	$item | add-member -type noteproperty -Name DPA -Value ""
     $item | Add-Member -type NoteProperty -Name ParentMP -Value ""
-	return $item
+    $item | Add-Member -type NoteProperty -name DPAPasswordHistory -Value $tmp2
+    $item | Add-Member -Type NoteProperty -name DPAPasswordHistorysource -Value $tmp3
+    $item | add-member -type NoteProperty -name PasswordChangedInTheLast5Days -Value "Unknown"
+    $item | Add-Member -type NoteProperty -Name GUID -Value "" 
+   	return $item
 }
 function new-DataSource {
 	$dataSource = new-object PSObject
@@ -18,15 +25,22 @@ function new-DataSource {
 	return $dataSource
 }
 function new-MonitoringPlan {
-	$monitoringPlan = new-object PSObject
-	$tmp = [System.Collections.ArrayList]@()
+	$monitoringPlan =new-object PSObject
+	$tmp = New-object System.Collections.ArrayList
+    $tmp2= New-object System.Collections.ArrayList
+    $tmp3= New-object System.Collections.ArrayList
+
 	$monitoringPlan | add-member -type noteproperty -Name dataSources -Value $tmp
 	$monitoringPlan | add-member -type noteproperty -Name name -Value ""
 	$monitoringPlan | add-member -type noteproperty -Name GUID -Value ""
 	$monitoringPlan | add-member -type noteproperty -Name MP_DPA -Value ""
     $monitoringPlan | Add-Member -Type NoteProperty -Name usesDefaultSQL -Value $True
     $monitoringPlan | Add-Member -type NoteProperty -name SQLUserName -Value ""
-	return $monitoringPlan
+    $monitoringPlan | Add-Member -type NoteProperty -name MP_DPA_PasswordHEX -Value ""
+    $monitoringPlan | Add-Member -type NoteProperty -name DPAPasswordHistory -Value $tmp2
+    $monitoringPlan | Add-Member -Type NoteProperty -name DPAPasswordHistorysource -Value $tmp3
+    $monitoringPlan | add-member -type NoteProperty -name PasswordChangedInTheLast5Days -Value "Unknown"
+    return $monitoringPlan
 }
 function Get-DSTypeByGUID {
     param ($GUID, $configxml)
@@ -34,19 +48,35 @@ function Get-DSTypeByGUID {
     return ($configxml.selectnodes("./nr[1]/n[@n='\NetwrixAuditor']/n[@n='MetaInformation']/n[@n='Collectors']/n[@n=$tmp]/a[@n='ShortName']").v)
 }
 function get-nwxconfig {
-	param($configxml)
+	param($configxml, $WorkingDirectory)
+    $configServer=$WorkingDirectory+'AuditCore\ConfigServer\StorageBackups'
 	$monitoringPlans = [System.Collections.ArrayList]@()
 	$managedObjects = $configxml.SelectNodes('./nr[1]/n/n[@n="ManagedObjects"]/n')
 	$managedObjects | % {
 		$temp = new-MonitoringPlan
         $temp.usesDefaultSQL=[System.Convert]::ToBoolean($_.selectnodes("./n[@n='ReportingSettings']/a[@n='UseDefault']").v)
-        #write-host ($_.selectnodes("./n[@n='ReportingSettings']/a[@n='Enabled']").v)
         if(!$temp.usesDefaultSQL){$temp.SQLUserName = ($_.selectnodes("./n[@n='ReportingSettings']/a[@n='UserName']")).v}
 		$temp.GUID = $_.n[0]
 		$tempName = $_.selectNodes("./a[@n='Name']")
 		$temp.name = $tempName.v
 		$tempDPA=$_.selectNodes("./n[@n='AccountInfo']/a[@n='UserName']")
 		$temp.MP_DPA=$tempDPA.v
+        $temp.MP_DPA_PasswordHEX=($_.selectNodes("./n[@n='AccountInfo']/a[@n='Password']").v)
+        $configbackups = gci $configServer -recurse | ? {$_.Name -eq 'Configuration.xml' -and $_.Fullname -like "*Periodic*"}
+        $configbackups | % {
+            $config=New-Object System.Xml.XmlDocument
+            $config.load($_.FullName)
+            $tmp="'"+$temp.GUID+"'"
+            #Write-Host -BackgroundColor DarkGreen $tmp
+            #Write-Host -BackgroundColor DarkGreen ($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")).v
+            if($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")) {
+                [void]$temp.DPAPasswordhistory.add(($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")).v)
+                [void]$temp.DPAPasswordhistorysource.add(([regex]::Match($_.FullName, "BACKUP_\d{8}")).value)    
+                if(($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")).v -ne $temp.MP_DPA_PasswordHEX) {
+                    $temp.PasswordChangedInTheLast5Days="Yes"   
+                }
+            }
+        }
 		$tempDataSources = $_.SelectNodes("./n[@n='AuditedSystems']/n")
 		$tempDataSources | % {
 			$tempDS = new-DataSource
@@ -59,6 +89,7 @@ function get-nwxconfig {
 			$items=$_.SelectNodes("./n[@n='ScopeItems']/n")
 			$items | % { 
 				$tmpi = new-item
+                $tmpi.GUID=$_.n[0]
 				$tmpi.type=$_.t
 				$TMP=$_.selectnodes("./a[@n='audit_item_value']")
 				$tmpi.target=$TMP.v
@@ -67,6 +98,18 @@ function get-nwxconfig {
 				if (!$tmpi.usesDefault)	{
 					$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='UserName']")
 					$tmpi.DPA=$TMP.v
+                    $configbackups | % {
+                        $config=New-Object System.Xml.XmlDocument
+                        $config.load($_.FullName)
+                        $tmpiguid="'"+$tmpi.GUID+"'"
+                        if($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']").v) {
+                            [void]$tmpi.DPAPasswordhistory.add(($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']")).v)
+                            [void]$tmpi.DPAPasswordhistorysource.add(([regex]::Match($_.FullName, "BACKUP_\d{8}")).value)    
+                            if(($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']")).v -ne $tmpi.MP_DPA_PasswordHEX) {
+                                $tmpi.PasswordChangedInTheLast5Days="Possible"   
+                            }
+                        }
+                    }
 				}
                 $tmpi.ParentMP=$temp.name
 				[void]$tempDS.items.add($tmpi)
@@ -99,6 +142,7 @@ function Get-LegacyAuditSystems {
 }
 function Get-NwxSQLSettings {
     param($configxml)
+
     $SQLSettings=$configxml.selectnodes("./nr[1]/n[@n='\AuditedSystemsAccountsCache']/n/n/n/n/n")
     $NwxSQLSettings="" | select SQLURL, SQLUserName, SSRSURL1, SSRSURL2, SSRSUserName, DDCSQLUserName
     $NwxSQLSettings.SQLURL=($SQLSettings.selectnodes("./a")).v
@@ -118,17 +162,6 @@ function Get-NwxSchTasks {
         $TmpName = $_.TaskName
         $Tmp=([regex]::Matches($TmpName, '{[-0-9a-z]+}'))
         $TmpTask.GUID=(([System.Convert]::toString($Tmp[1]) -replace "[{}]", ""))
-        #switch ($Tmp[0]) {
-        #    "{1127fafa-5e4f-e3d6-05d6-ca9317c533bb}" {
-        #        $TmpTask.Name="IUT"
-        #    }
-        #    "{33049cf6-6925-d7bd-ab7e-9cf82eed22e0}" {
-        #        $TmpTask.Name="PEN"
-        #    }
-        #    "{e8f4ac2f-098c-8cc5-22f2-9339d551325a}" {
-        #        $TmpTask.Name="ELM"
-        #    }
-        #}
         $TmpTask.Name=Get-DSTypeByGUID -GUID ($tmp[0] -replace "[{}]", "") -configxml $configxml
         $TmpTask.MP_DPA = $_.Author
         [void]$NwxSchTasks.add($TmpTask)
@@ -169,7 +202,7 @@ function Get-NwxInstallation	{
             WorkingDirectory = $WorkingDirectory
 			ConfigurationXML=$configxml
 			ConfgiurationXMLPath=$WorkingDirectory + 'AuditCore\ConfigServer\Configuration.xml'
-			MonitoringPlans=Get-NwxConfig $configxml
+			MonitoringPlans=Get-NwxConfig $configxml $WorkingDirectory
 			DefaultSQLSettings=Get-NwxSQLSettings $configxml
 			ELM=Get-LegacyAuditSystems $configxml
             SQLSettings=Get-NwxSQLSettings $configxml
