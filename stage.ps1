@@ -48,9 +48,13 @@ function Get-DSTypeByGUID {
     return ($configxml.selectnodes("./nr[1]/n[@n='\NetwrixAuditor']/n[@n='MetaInformation']/n[@n='Collectors']/n[@n=$tmp]/a[@n='ShortName']").v)
 }
 function get-nwxconfig {
-	param($configxml, $WorkingDirectory)
+	param($configxml, $WorkingDirectory, $XMLPath)
     $configServer=$WorkingDirectory+'AuditCore\ConfigServer\StorageBackups'
 	$monitoringPlans = [System.Collections.ArrayList]@()
+    if($configxml -eq $Null) {
+        $configxml=new-object System.Xml.XmlDocument
+        $configxml.load($XMLPath)
+    }
 	$managedObjects = $configxml.SelectNodes('./nr[1]/n/n[@n="ManagedObjects"]/n')
 	$managedObjects | % {
 		$temp = new-MonitoringPlan
@@ -62,21 +66,19 @@ function get-nwxconfig {
 		$tempDPA=$_.selectNodes("./n[@n='AccountInfo']/a[@n='UserName']")
 		$temp.MP_DPA=$tempDPA.v
         $temp.MP_DPA_PasswordHEX=($_.selectNodes("./n[@n='AccountInfo']/a[@n='Password']").v)
-        $configbackups = gci $configServer -recurse | ? {$_.Name -eq 'Configuration.xml' -and $_.Fullname -like "*Periodic*"}
-        $configbackups | % {
-            $config=New-Object System.Xml.XmlDocument
-            $config.load($_.FullName)
-            $tmp="'"+$temp.GUID+"'"
-            #Write-Host -BackgroundColor DarkGreen $tmp
-            #Write-Host -BackgroundColor DarkGreen ($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")).v
-            if($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")) {
-                [void]$temp.DPAPasswordhistory.add(($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")).v)
-                [void]$temp.DPAPasswordhistorysource.add(([regex]::Match($_.FullName, "BACKUP_\d{8}")).value)    
-                if(($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")).v -ne $temp.MP_DPA_PasswordHEX) {
-                    $temp.PasswordChangedInTheLast5Days="Yes"   
-                }
-            }
-        }
+        #$configbackups = gci $configServer -recurse | ? {$_.Name -eq 'Configuration.xml' -and $_.Fullname -like "*Periodic*"}
+        #$configbackups | % {
+        #    $config=New-Object System.Xml.XmlDocument
+        #    $config.load($_.FullName)
+        #    $tmp="'"+$temp.GUID+"'"
+        #    if($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")) {
+        #        [void]$temp.DPAPasswordhistory.add(($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")).v)
+        #        [void]$temp.DPAPasswordhistorysource.add(([regex]::Match($_.FullName, "BACKUP_\d{8}")).value)    
+        #        if(($config.selectnodes("./nr[1]/n/n[@n='ManagedObjects']/n[@n=$tmp]/n[@n='AccountInfo']/a[@n='Password']")).v -ne $temp.MP_DPA_PasswordHEX) {
+        #            $temp.PasswordChangedInTheLast5Days="Yes"   
+        #        }
+        #    }
+        #}
 		$tempDataSources = $_.SelectNodes("./n[@n='AuditedSystems']/n")
 		$tempDataSources | % {
 			$tempDS = new-DataSource
@@ -98,18 +100,18 @@ function get-nwxconfig {
 				if (!$tmpi.usesDefault)	{
 					$TMP=$_.selectnodes("./n[@n='AccountInfo']/a[@n='UserName']")
 					$tmpi.DPA=$TMP.v
-                    $configbackups | % {
-                        $config=New-Object System.Xml.XmlDocument
-                        $config.load($_.FullName)
-                        $tmpiguid="'"+$tmpi.GUID+"'"
-                        if($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']").v) {
-                            [void]$tmpi.DPAPasswordhistory.add(($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']")).v)
-                            [void]$tmpi.DPAPasswordhistorysource.add(([regex]::Match($_.FullName, "BACKUP_\d{8}")).value)    
-                            if(($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']")).v -ne $tmpi.MP_DPA_PasswordHEX) {
-                                $tmpi.PasswordChangedInTheLast5Days="Possible"   
-                            }
-                        }
-                    }
+                    #$configbackups | % {
+                    #    $config=New-Object System.Xml.XmlDocument
+                    #    $config.load($_.FullName)
+                    #    $tmpiguid="'"+$tmpi.GUID+"'"
+                    #    if($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']").v) {
+                    #        [void]$tmpi.DPAPasswordhistory.add(($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']")).v)
+                    #        [void]$tmpi.DPAPasswordhistorysource.add(([regex]::Match($_.FullName, "BACKUP_\d{8}")).value)    
+                    #        if(($config.selectnodes("//n[@n=$tmpiguid]/n[@n='AccountInfo']/a[@n='Password']")).v -ne $tmpi.MP_DPA_PasswordHEX) {
+                    #            $tmpi.PasswordChangedInTheLast5Days="Possible"   
+                    #        }
+                    #    }
+                    #}
 				}
                 $tmpi.ParentMP=$temp.name
 				[void]$tempDS.items.add($tmpi)
